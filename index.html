@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>If-Else Extractor</title>
+    <style>
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
+        button { padding: 8px 15px; }
+        pre { background: #f4f4f4; padding: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<h3>Paste Full If-Else Code:</h3>
+<textarea id="inputCode"></textarea>
+
+<h3>Enter Keyword (e.g. setxxxxpanelrendered):</h3>
+<input type="text" id="keyword" style="width: 300px;">
+<br><br>
+
+<button onclick="extractBlocks()">Extract Matching If-Else Block</button>
+
+<h3>Output:</h3>
+<pre id="output"></pre>
+
+<script>
+function extractBlocks() {
+    const code = document.getElementById("inputCode").value;
+    const keyword = document.getElementById("keyword").value;
+    const lines = code.split("\n");
+    let result = [];
+    let stack = [];
+    let currentBlock = [];
+    let capturing = false;
+
+    for (let line of lines) {
+        if (line.includes("if") || line.includes("else")) {
+            if (!capturing) {
+                currentBlock = [];
+            }
+            capturing = true;
+        }
+
+        if (capturing) {
+            currentBlock.push(line);
+        }
+
+        if (line.includes("{")) {
+            stack.push("{");
+        }
+
+        if (line.includes("}")) {
+            stack.pop();
+            if (stack.length === 0 && capturing) {
+                let blockText = currentBlock.join("\n");
+                if (blockText.includes(keyword)) {
+                    result.push(blockText);
+                }
+                capturing = false;
+            }
+        }
+    }
+
+    document.getElementById("output").textContent =
+        result.length > 0 ? result.join("\n\n------------------\n\n")
+                          : "No matching block found.";
+}
+</script>
+
+</body>
+</html>
