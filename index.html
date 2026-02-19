@@ -1,70 +1,232 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>If-Else Extractor</title>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Logic Chain Extractor</title>
     <style>
-        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
-        button { padding: 8px 15px; }
-        pre { background: #f4f4f4; padding: 10px; white-space: pre-wrap; }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 30px;
+        background: #f0f2f5;
+      }
+      .container {
+        max-width: 1000px;
+        margin: auto;
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      textarea {
+        width: 100%;
+        height: 250px;
+        font-family: "Consolas", monospace;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 15px;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 16px;
+      }
+      button {
+        padding: 12px 24px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      button:hover {
+        background: #218838;
+      }
+      pre {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 20px;
+        border-radius: 6px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        line-height: 1.5;
+        font-family: "Consolas", monospace;
+      }
+      .label {
+        font-weight: bold;
+        margin-bottom: 8px;
+        display: block;
+        color: #555;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Logical Chain Extractor</h2>
+      <p>
+        Independent blocks without the keyword are removed. Connected
+        <code>if/else</code> chains are preserved if the keyword appears
+        anywhere in them.
+      </p>
 
-<h3>Paste Full If-Else Code:</h3>
-<textarea id="inputCode"></textarea>
+      <span class="label">Input Code:</span>
+      <textarea id="codeInput"></textarea>
 
-<h3>Enter Keyword (e.g. setxxxxpanelrendered):</h3>
-<input type="text" id="keyword" style="width: 300px;">
-<br><br>
+      <span class="label">Keyword:</span>
+      <input type="text" id="keywordInput" value="setSomething" />
 
-<button onclick="extractBlocks()">Extract Matching If-Else Block</button>
+      <button onclick="run()">Extract Logic</button>
 
-<h3>Output:</h3>
-<pre id="output"></pre>
+      <h3>Result:</h3>
+      <pre id="output"></pre>
+    </div>
 
-<script>
-function extractBlocks() {
-    const code = document.getElementById("inputCode").value;
-    const keyword = document.getElementById("keyword").value;
-    const lines = code.split("\n");
-    let result = [];
-    let stack = [];
-    let currentBlock = [];
-    let capturing = false;
-
-    for (let line of lines) {
-        if (line.includes("if") || line.includes("else")) {
-            if (!capturing) {
-                currentBlock = [];
-            }
-            capturing = true;
-        }
-
-        if (capturing) {
-            currentBlock.push(line);
-        }
-
-        if (line.includes("{")) {
-            stack.push("{");
-        }
-
-        if (line.includes("}")) {
-            stack.pop();
-            if (stack.length === 0 && capturing) {
-                let blockText = currentBlock.join("\n");
-                if (blockText.includes(keyword)) {
-                    result.push(blockText);
-                }
-                capturing = false;
-            }
-        }
+    <script>
+      // Initialize with your example
+      document.getElementById("codeInput").value = `if(condition1){
+    if(condition2){
+        setHHJJAutoPan(true);
+    } else {
+        setOjtjther(false);
     }
+} 
 
-    document.getElementById("output").textContent =
-        result.length > 0 ? result.join("\n\n------------------\n\n")
-                          : "No matching block found.";
-}
-</script>
+if(condition1){
+    if(condition2){
+        setAutoPan(true);
+    } else {
+        setOther(false);
+    }
+} else if(condition3){
+    setSomething();
+} else {
+    setAutoPan(false);
+}`;
 
-</body>
+      function run() {
+        const code = document.getElementById("codeInput").value;
+        const keyword = document.getElementById("keywordInput").value;
+        const output = document.getElementById("output");
+
+        if (!keyword.trim()) return (output.textContent = "Enter a keyword.");
+
+        const chains = getLogicalChains(code);
+        const processedChains = chains
+          .filter((chain) => chain.includes(keyword)) // REMOVE independent blocks without keyword
+          .map((chain) => processBlockRecursive(chain, keyword)); // BLANK content inside kept blocks
+
+        output.textContent = processedChains.join("\n\n").trim();
+      }
+
+      /**
+       * Splits code into independent top-level chains (if...else if...else)
+       */
+      function getLogicalChains(code) {
+        const chains = [];
+        let i = 0;
+
+        while (i < code.length) {
+          let start = code.indexOf("if", i);
+          if (start === -1) break;
+
+          let currentChainEnd = findBlockEnd(code, start);
+
+          // Look ahead for "else" to attach to this chain
+          while (true) {
+            let nextPart = code.substring(currentChainEnd).trimStart();
+            if (nextPart.startsWith("else")) {
+              let elseStart = code.indexOf("else", currentChainEnd);
+              currentChainEnd = findBlockEnd(code, elseStart);
+            } else {
+              break;
+            }
+          }
+
+          chains.push(code.substring(start, currentChainEnd));
+          i = currentChainEnd;
+        }
+        return chains;
+      }
+
+      /**
+       * Finds the index where a block (starting at 'if' or 'else') ends its closing brace
+       */
+      function findBlockEnd(text, startIdx) {
+        let firstBrace = text.indexOf("{", startIdx);
+        if (firstBrace === -1) return text.indexOf(";", startIdx) + 1; // Single line if
+
+        let count = 1;
+        let j = firstBrace + 1;
+        while (count > 0 && j < text.length) {
+          if (text[j] === "{") count++;
+          if (text[j] === "}") count--;
+          j++;
+        }
+        return j;
+      }
+
+      /**
+       * Deeply blanks blocks that don't contain the keyword
+       */
+      function processBlockRecursive(code, keyword) {
+        let result = "";
+        let i = 0;
+
+        while (i < code.length) {
+          let openBraceIndex = code.indexOf("{", i);
+
+          if (openBraceIndex === -1) {
+            result += filterLines(code.substring(i), keyword);
+            break;
+          }
+
+          let header = code.substring(i, openBraceIndex);
+          let j = openBraceIndex + 1;
+          let braceCount = 1;
+          while (braceCount > 0 && j < code.length) {
+            if (code[j] === "{") braceCount++;
+            if (code[j] === "}") braceCount--;
+            j++;
+          }
+          let closeBraceIndex = j - 1;
+          let body = code.substring(openBraceIndex + 1, closeBraceIndex);
+
+          if (body.includes(keyword)) {
+            result += header + "{" + processBlockRecursive(body, keyword) + "}";
+          } else {
+            // Determine if this specific block is an 'if' or 'else' block
+            result += header + "{\n    }";
+          }
+
+          i = closeBraceIndex + 1;
+        }
+        return result;
+      }
+
+      function filterLines(text, keyword) {
+        return text
+          .split("\n")
+          .map((line) => {
+            const trimmed = line.trim();
+            if (line.includes(keyword)) return line;
+            // Keep structural keywords, blank pure logic lines
+            if (
+              trimmed.startsWith("if") ||
+              trimmed.startsWith("else") ||
+              trimmed === "" ||
+              trimmed === "}"
+            )
+              return line;
+            return "";
+          })
+          .filter((l) => l !== null)
+          .join("\n");
+      }
+    </script>
+  </body>
 </html>
